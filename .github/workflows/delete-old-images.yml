@@ -2,36 +2,32 @@ name: Auto Delete Images After 2 Minutes
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  
-  workflow_dispatch:      
+    - cron: "*/2 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  delete:
+  delete-old-images:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Find and delete images older than 2 minutes
+      - name: Delete old images in images/
         run: |
-          echo "⏱️ Đang tìm ảnh cũ hơn 2 phút..."
-          find images -type f \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.jpeg" \) | while read file; do
-            last_commit_ts=$(git log -1 --format="%ct" -- "$file")
-            current_ts=$(date +%s)
-            age_minutes=$(( (current_ts - last_commit_ts) / 60 ))
+          echo "Deleting in images/ older than 2 minutes..."
+          [ -d images ] && find images/ -type f -mmin +2 -delete || echo "Folder images/ not found"
 
-            if [ "$age_minutes" -gt 2 ]; then
-              echo "🗑️ Xóa ảnh: $file (đã $age_minutes phút)"
-              git rm "$file"
-            fi
-          done
+      - name: Delete old images in anh/
+        run: |
+          echo "Deleting in anh/ older than 2 minutes..."
+          [ -d anh ] && find anh/ -type f -mmin +2 -delete || echo "Folder anh/ not found"
 
-      - name: Commit and push changes
+      - name: Commit & Push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain)" ]; then
-            git commit -m "🧹 Auto-delete images older than 2 minutes"
-            git push origin HEAD:main
-          else
-            echo "✅ Không có ảnh nào cần xóa."
+          git add images/ anh/
+          git commit -m "Auto-delete images older than 2 minutes" || echo "No changes to commit"
+          git push
